@@ -90,6 +90,9 @@ bool HazardMgr::OnNewMail(MOOSMSG_LIST &NewMail)
     else if(key == "UHZ_MISSION_PARAMS") 
       handleMailMissionParams(sval);
 
+    else if(key == "VEHICLE_REPORT")
+      handleMailVehicleReport(sval);
+
     else 
       reportRunWarning("Unhandled Mail: " + key);
   }
@@ -313,7 +316,7 @@ void HazardMgr::handleMailReportRequest()
 {
   m_summary_reports++;
 
-  m_hazard_set.findMinXPath(20);
+ m_hazard_set.findMinXPath(20);
   //unsigned int count    = m_hazard_set.findMinXPath(20);
   string summary_report = m_hazard_set.getSpec("final_report");
   
@@ -368,6 +371,44 @@ bool HazardMgr::buildReport()
   m_msgs << "      Hazardset Reports Posted: " << m_summary_reports << endl;
   m_msgs << "                   Report Name: " << m_report_name << endl;
 
+  return(true);
+}
+
+//---------------------------------------------------------
+// Procedure: handleMailVehicleReport
+//   
+bool HazardMgr::handleMailVehicleReport(string input)
+{
+
+  //parse incoming long report
+  vector<string> str_vector = parseString(input, #);
+  
+  for (unsigned int i=2; i<str_vector.size(); i++)
+  {	 string str = str_vector[i] ;
+        XYHazard new_hazard = string2Hazard(str);
+        new_hazard.setType("hazard");
+
+       string hazlabel = new_hazard.getLabel();
+  
+      if(hazlabel == "") {
+          reportRunWarning("Detection report received for hazard w/out label");
+         return(false);
+      }
+
+     int ix = m_hazard_set.findHazard(hazlabel);
+     if(ix == -1)
+        m_hazard_set.addHazard(new_hazard);
+     else
+       m_hazard_set.setHazard(ix, new_hazard);
+
+ }  
+
+  m_hazard_set.findMinXPath(20);
+  string summary_report = m_hazard_set.getSpec("final_report");
+  
+  Notify("HAZARDSET_REPORT", summary_report);
+}
+  
   return(true);
 }
 
