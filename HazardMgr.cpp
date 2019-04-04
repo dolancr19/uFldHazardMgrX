@@ -27,6 +27,9 @@
 #include "XYFormatUtilsHazard.h"
 #include "XYFormatUtilsPoly.h"
 #include "ACTable.h"
+#include "NodeMessage.h"  // In the lib_ufield library
+#include "NodeMessageUtils.h"  // In the lib_ufield library
+#include <vector>
 
 using namespace std;
 
@@ -82,7 +85,8 @@ bool HazardMgr::OnNewMail(MOOSMSG_LIST &NewMail)
       handleMailSensorOptionsSummary(sval);
 
     else if(key == "UHZ_DETECTION_REPORT") 
-      handleMailDetectionReport(sval);
+      { handleMailDetectionReport(sval);
+	m_vector_detection.push_back(sval);}
 
     else if(key == "HAZARDSET_REQUEST") 
       handleMailReportRequest();
@@ -90,8 +94,11 @@ bool HazardMgr::OnNewMail(MOOSMSG_LIST &NewMail)
     else if(key == "UHZ_MISSION_PARAMS") 
       handleMailMissionParams(sval);
 
-    else if(key == "VEHICLE_REPORT")
-      handleMailVehicleReport(sval);
+    else if(key == "VEHICLE_REPORT_REQUEST")
+      handleMailVehicleReportRequest();
+
+    else if (key == "VEHICLE_REPORT")
+      handleMailVehicleReport(sval);    
 
     else 
       reportRunWarning("Unhandled Mail: " + key);
@@ -191,6 +198,8 @@ void HazardMgr::registerVariables()
   Register("UHZ_OPTIONS_SUMMARY", 0);
   Register("UHZ_MISSION_PARAMS", 0);
   Register("HAZARDSET_REQUEST", 0);
+  Register("VEHICLE_REPORT",0);
+  Register("VEHICLE_REPORT_REQUEST",0);
 }
 
 //---------------------------------------------------------
@@ -279,6 +288,8 @@ bool HazardMgr::handleMailDetectionReport(string str)
 {
   m_detection_reports++;
 
+  
+  
   XYHazard new_hazard = string2Hazard(str);
   new_hazard.setType("hazard");
 
@@ -321,6 +332,20 @@ void HazardMgr::handleMailReportRequest()
   string summary_report = m_hazard_set.getSpec("final_report");
   
   Notify("HAZARDSET_REPORT", summary_report);
+  Notify("FOO", "bar");
+
+  
+  NodeMessage node_message;
+
+  node_message.setSourceNode(m_host_community);
+  node_message.setDestNode("all");
+  node_message.setVarName("HAZARDSET_REPORT");
+  node_message.setStringVal(summary_report);
+
+  string msg = node_message.getSpec();
+
+  Notify("NODE_MESSAGE_LOCAL", msg); 
+
 }
 
 
@@ -381,37 +406,44 @@ bool HazardMgr::handleMailVehicleReport(string input)
 {
 
   //parse incoming long report
-  vector<string> str_vector = parseString(input, #);
+  vector<string> str_vector = parseString(input, "#");
   
-  for (unsigned int i=2; i<str_vector.size(); i++)
-  {	 string str = str_vector[i] ;
-        XYHazard new_hazard = string2Hazard(str);
-        new_hazard.setType("hazard");
+  for (unsigned int i=0; i<str_vector.size(); i++)
+    {	 string str = str_vector[i] ;
+       handleMailDetectionReport(str);
+    }  
 
-       string hazlabel = new_hazard.getLabel();
+  // m_hazard_set.findMinXPath(20);
+   // string summary_report = m_hazard_set.getSpec("final_report");
   
-      if(hazlabel == "") {
-          reportRunWarning("Detection report received for hazard w/out label");
-         return(false);
+   // Notify("VEHICLE_REPORT", summary_report);
+  
+   return(true);
+}
+
+//---------------------------------------------------------
+// Procedure: handleMailVehicleReportRequest
+
+void HazardMgr::handleMailVehicleReportRequest()
+{
+  string str;
+
+  for (unsigned int i = 0; i < m_vector_detection.size() && i<3; i++)
+    {  str = str + m_vector_detection[i] + "#";
+      m_vector_detection.erase(m_vector_detection.begin());
       }
 
-     int ix = m_hazard_set.findHazard(hazlabel);
-     if(ix == -1)
-        m_hazard_set.addHazard(new_hazard);
-     else
-       m_hazard_set.setHazard(ix, new_hazard);
+  NodeMessage node_message;
 
- }  
+  node_message.setSourceNode(m_host_community);
+  node_message.setDestNode("all");
+  node_message.setVarName("VEHICLE_REPORT");
+  node_message.setStringVal(str);
 
-  m_hazard_set.findMinXPath(20);
-  string summary_report = m_hazard_set.getSpec("final_report");
-  
-  Notify("HAZARDSET_REPORT", summary_report);
+  string msg = node_message.getSpec();
+
+  Notify("NODE_MESSAGE_LOCAL", msg); 
 }
-  
-  return(true);
-}
-
 
 
 

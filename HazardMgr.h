@@ -28,6 +28,8 @@
 #include "XYHazardSet.h"
 #include "XYPolygon.h"
 
+using namespace std;
+
 class HazardMgr : public AppCastingMOOSApp
 {
  public:
@@ -51,6 +53,9 @@ class HazardMgr : public AppCastingMOOSApp
    bool handleMailHazardReport(std::string) {return(true);}
    void handleMailReportRequest();
    void handleMailMissionParams(std::string);
+  //added new function
+   bool handleMailVehicleReport(std::string);
+   void handleMailVehicleReportRequest();
 
  protected: 
    void postSensorConfigRequest();
@@ -81,6 +86,9 @@ class HazardMgr : public AppCastingMOOSApp
    XYPolygon   m_search_region;
    
    double      m_transit_path_width;
+
+  //vector to hold incoming reports
+  vector<string> m_vector_detection;
 };
 
 #endif 
