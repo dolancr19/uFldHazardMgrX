@@ -87,6 +87,11 @@ class HazardMgr : public AppCastingMOOSApp
    
    double      m_transit_path_width;
 
+   bool m_comms;
+   double m_previous_time;
+   double m_current_time;
+   string m_comm;
+
   //vector to hold incoming reports
   vector<string> m_vector_detection;
 };

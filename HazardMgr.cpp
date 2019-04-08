@@ -54,6 +54,10 @@ HazardMgr::HazardMgr()
   m_detection_reports  = 0;
 
   m_summary_reports = 0;
+  m_comms = false;
+  m_current_time=0;
+  m_previous_time=0;
+  
 }
 
 //---------------------------------------------------------
@@ -77,6 +81,9 @@ bool HazardMgr::OnNewMail(MOOSMSG_LIST &NewMail)
     bool   mdbl  = msg.IsDouble();
     bool   mstr  = msg.IsString();
 #endif
+
+    
+	
     
     if(key == "UHZ_CONFIG_ACK") 
       handleMailSensorConfigAck(sval);
@@ -98,7 +105,14 @@ bool HazardMgr::OnNewMail(MOOSMSG_LIST &NewMail)
       handleMailVehicleReportRequest();
 
     else if (key == "VEHICLE_REPORT")
-      handleMailVehicleReport(sval);    
+      handleMailVehicleReport(sval);
+
+    else if(key == "NODE_REPORT")
+      {
+	m_comms = true;
+	m_previous_time=MOOSTime();
+      }
+	    
 
     else 
       reportRunWarning("Unhandled Mail: " + key);
@@ -130,6 +144,10 @@ bool HazardMgr::Iterate()
   if(m_sensor_config_set)
     postSensorInfoRequest();
 
+  m_current_time=MOOSTime();
+  if(m_current_time-m_previous_time>2)
+    m_comms=false;
+  
   AppCastingMOOSApp::PostReport();
   return(true);
 }
@@ -200,6 +218,8 @@ void HazardMgr::registerVariables()
   Register("HAZARDSET_REQUEST", 0);
   Register("VEHICLE_REPORT",0);
   Register("VEHICLE_REPORT_REQUEST",0);
+  Register("NODE_REPORT",0);
+  m_previous_time=MOOSTime();
 }
 
 //---------------------------------------------------------
@@ -395,6 +415,9 @@ bool HazardMgr::buildReport()
   m_msgs << "   Hazardset Reports Requested: " << m_summary_reports << endl;
   m_msgs << "      Hazardset Reports Posted: " << m_summary_reports << endl;
   m_msgs << "                   Report Name: " << m_report_name << endl;
+  m_msgs << "               Status of comms: " << m_comms << endl;
+  m_msgs << "        time between messages=: " << m_current_time-m_previous_time << endl;
+
 
   return(true);
 }
@@ -426,23 +449,27 @@ bool HazardMgr::handleMailVehicleReport(string input)
 
 void HazardMgr::handleMailVehicleReportRequest()
 {
-  string str;
+  if(m_comms)
+    {
+      string str;
 
-  for (unsigned int i = 0; i < m_vector_detection.size() && i<3; i++)
-    {  str = str + m_vector_detection[i] + "#";
-      m_vector_detection.erase(m_vector_detection.begin());
-      }
+      for (unsigned int i = 0; i < m_vector_detection.size() && i<3; i++)
+        {
+	  str = str + m_vector_detection[i] + "#";
+          m_vector_detection.erase(m_vector_detection.begin());
+        }
 
-  NodeMessage node_message;
+      NodeMessage node_message;
 
-  node_message.setSourceNode(m_host_community);
-  node_message.setDestNode("all");
-  node_message.setVarName("VEHICLE_REPORT");
-  node_message.setStringVal(str);
+      node_message.setSourceNode(m_host_community);
+      node_message.setDestNode("all");
+      node_message.setVarName("VEHICLE_REPORT");
+      node_message.setStringVal(str);
 
-  string msg = node_message.getSpec();
+      string msg = node_message.getSpec();
 
-  Notify("NODE_MESSAGE_LOCAL", msg); 
+      Notify("NODE_MESSAGE_LOCAL", msg);
+    }
 }
 
 
