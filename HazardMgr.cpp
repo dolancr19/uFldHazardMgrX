@@ -111,7 +111,8 @@ bool HazardMgr::OnNewMail(MOOSMSG_LIST &NewMail)
     //handles classification 
     else if(key == "UHZ_HAZARD_REPORT")
       { handleMailHazardReport(sval);
-        m_vector_detection.push_back(sval);}
+	
+	  m_vector_detection.push_back(sval.c_str());}
     else 
       reportRunWarning("Unhandled Mail: " + key);
   }
@@ -442,10 +443,10 @@ void HazardMgr::handleMailVehicleReportRequest()
   if(m_comms)
     {
       string str;
-
-      for (unsigned int i = 0; i < m_vector_detection.size() && i<2; i++)
+      unsigned int jj = m_vector_detection.size();
+      for (unsigned int i = 0; i < jj && i<2; i++)
         {
-	  str = str + m_vector_detection[i] + "#";
+	  str = str + m_vector_detection[0] + "#";
           m_vector_detection.erase(m_vector_detection.begin());
         }
       
