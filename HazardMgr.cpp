@@ -316,11 +316,11 @@ bool HazardMgr::handleMailDetectionReport(string str)
     return(false);
   }
 
-  int ix = m_hazard_set.findHazard(hazlabel);
+  int ix = m_detection_set.findHazard(hazlabel);
   if(ix == -1)
-    m_hazard_set.addHazard(new_hazard);
+    m_detection_set.addHazard(new_hazard);
   else
-    m_hazard_set.setHazard(ix, new_hazard);
+    m_detection_set.setHazard(ix, new_hazard);
 
   string event = "New Detection, label=" + new_hazard.getLabel();
   event += ", x=" + doubleToString(new_hazard.getX(),1);
@@ -443,7 +443,7 @@ void HazardMgr::handleMailVehicleReportRequest()
     {
       string str;
 
-      for (unsigned int i = 0; i < m_vector_detection.size() && i<3; i++)
+      for (unsigned int i = 0; i < m_vector_detection.size() && i<2; i++)
         {
 	  str = str + m_vector_detection[i] + "#";
           m_vector_detection.erase(m_vector_detection.begin());
@@ -481,6 +481,10 @@ bool HazardMgr::handleMailHazardReport(string str)
     return(false);
   }
 
+  string haztype = new_hazard.getType();
+  
+  if (haztype == "hazard")
+    {
   int ix = m_hazard_set.findHazard(hazlabel);
   if(ix == -1)
     m_hazard_set.addHazard(new_hazard);
@@ -492,7 +496,7 @@ bool HazardMgr::handleMailHazardReport(string str)
   event += ", y=" + doubleToString(new_hazard.getY(),1);
   event += ", type=" + new_hazard.getType();
   reportEvent(event);
-
+    }
   return(true);
 }
 
