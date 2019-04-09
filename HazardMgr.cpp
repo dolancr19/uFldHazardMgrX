@@ -58,6 +58,8 @@ HazardMgr::HazardMgr()
   m_comms = false;
   m_current_time=0;
   m_previous_time=0;
+  m_dup=0;
+  m_new=0;
   
 }
 
@@ -345,9 +347,10 @@ void HazardMgr::handleMailReportRequest()
   m_summary_reports++;
 
   m_hazard_set.findMinXPath(20);
+  
   //unsigned int count    = m_hazard_set.findMinXPath(20);
   string summary_report = m_hazard_set.getSpec("final_report");
-  
+   
   Notify("HAZARDSET_REPORT", summary_report);
   Notify("FOO", "bar");
 
@@ -412,8 +415,11 @@ bool HazardMgr::buildReport()
   m_msgs << "   Hazardset Reports Requested: " << m_summary_reports << endl;
   m_msgs << "      Hazardset Reports Posted: " << m_summary_reports << endl;
   m_msgs << "                   Report Name: " << m_report_name << endl;
-  m_msgs << "               Status of comms: " << m_comms << endl;
-  m_msgs << "        time between messages=: " << m_current_time-m_previous_time << endl;
+  //m_msgs << "               Status of comms: " << m_comms << endl;
+  //m_msgs << "        time between messages=: " << m_current_time-m_previous_time << endl;
+  m_msgs << "                    type test=: " << m_test << endl;
+  m_msgs << "                           new=: " << m_new << endl;
+  m_msgs << "                           dup=: " << m_dup << endl;
 
   return(true);
 }
@@ -471,7 +477,7 @@ void HazardMgr::handleMailVehicleReportRequest()
 bool HazardMgr::handleMailHazardReport(string str)
 {
   m_hazard_reports++;
-
+  
   XYHazard new_hazard = string2Hazard(str);
 
   string hazlabel = new_hazard.getLabel();
@@ -484,20 +490,33 @@ bool HazardMgr::handleMailHazardReport(string str)
 
   string haztype = new_hazard.getType();
   
-  if (haztype == "hazard")
-    {
-  int ix = m_hazard_set.findHazard(hazlabel);
+  //if (haztype == "hazard")
+  // {
+  int ix = m_classified.findHazard(hazlabel);
   if(ix == -1)
-    m_hazard_set.addHazard(new_hazard);
+    {
+      m_new +=1;
+      m_classified.addHazard(new_hazard);
+    }
   else
-    m_hazard_set.setHazard(ix, new_hazard);
+    // m_hazard_set.setHazard(ix, new_hazard);
+    {
+      m_dup +=1;
+      XYHazard working = m_classified.getHazard(ix);
+      string new_type = working.getType();
+      //m_test=new_type;
+      new_type = new_type + "#" + haztype;
+      m_test = new_type;
+      working.setType(new_type.c_str());
+      m_classified.setHazard(ix, working);
+    }
 
   string event = "New Classifcation, label=" + new_hazard.getLabel();
   event += ", x=" + doubleToString(new_hazard.getX(),1);
   event += ", y=" + doubleToString(new_hazard.getY(),1);
   event += ", type=" + new_hazard.getType();
   reportEvent(event);
-    }
+  // }
   return(true);
 }
 

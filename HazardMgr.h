@@ -85,6 +85,7 @@ class HazardMgr : public AppCastingMOOSApp
 
    XYHazardSet m_hazard_set;
   XYHazardSet m_detection_set;
+  XYHazardSet m_classified;
    XYPolygon   m_search_region;
    
    double      m_transit_path_width;
@@ -93,6 +94,9 @@ class HazardMgr : public AppCastingMOOSApp
    double m_previous_time;
    double m_current_time;
    string m_comm;
+   string m_test;
+   int m_dup;
+   int m_new;
 
   //vector to hold incoming reports
   vector<string> m_vector_detection;
