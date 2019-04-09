@@ -490,7 +490,7 @@ bool HazardMgr::handleMailHazardReport(string str)
   string event = "New Classifcation, label=" + new_hazard.getLabel();
   event += ", x=" + doubleToString(new_hazard.getX(),1);
   event += ", y=" + doubleToString(new_hazard.getY(),1);
-  event += ", type=" + new_hazard.getType();
+
   reportEvent(event);
 
   return(true);

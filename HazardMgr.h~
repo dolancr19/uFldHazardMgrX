@@ -76,7 +76,6 @@ class HazardMgr : public AppCastingMOOSApp
 
    unsigned int m_sensor_report_reqs;
    unsigned int m_detection_reports;
-   unsigned int m_hazard_reports;
 
    unsigned int m_summary_reports;
 
