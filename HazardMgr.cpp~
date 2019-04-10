@@ -346,61 +346,9 @@ void HazardMgr::handleMailReportRequest()
 {
   m_summary_reports++;
 
-  //m_hazard_set.findMinXPath(20);
+  m_hazard_set.findMinXPath(20);
   
   //unsigned int count    = m_hazard_set.findMinXPath(20);
-
-  XYHazard new_hazard ;
-
-  unsigned int i,
-  vsize = m_classified.size(); //size of classified detections
-
-  //cycle through each element of the classified array
-  for (i=0; i<vsize; i++)
-    {
-      new_hazard = m_classified.getHazard(i);
-     string haztype=  new_hazard.getType();
-     vector<string> hazvector = parseString(haztype, '#');
-     int haz_count=0;
-     int ben_count=0;
-     //count different classification of the same object
-     for (unsigned int j=0; j<hazvector.size(); j++)
-	{  if (hazvector[i] == "hazard")
-	    haz_count += 1;
-	  else if (hazvector[i] == "benign")
-	    ben_count +=1;
-	}
-      //set final classification type
-      if (haz_count >= ben_count)
-	new_hazard.setType("hazard");
-      else if (haz_count < ben_count)
-	new_hazard.setType("benign");
-
-       // find the hazard label and insert it into hazard set  
-       string hazlabel = new_hazard.getLabel();
-      if (new_hazard.getType() == "hazard") {     
-       int ix = m_hazard_set.findHazard(hazlabel);
-       if(ix == -1)
-       {
-          m_new +=1;
-          m_hazard_set.addHazard(new_hazard);
-          string event = "New hazard added, label=" + new_hazard.getLabel();
-          event += ", x=" + doubleToString(new_hazard.getX(),1);
-          event += ", y=" + doubleToString(new_hazard.getY(),1);
-          event += ", type=" + new_hazard.getType();
-	  reportEvent(event);
-         }
-      else
-	{
-	  m_hazard_set.setHazard(ix, new_hazard);
-          string event = "Old hazard updated, label=" + new_hazard.getLabel();
-          event += ", x=" + doubleToString(new_hazard.getX(),1);
-          event += ", y=" + doubleToString(new_hazard.getY(),1);
-          event += ", type=" + new_hazard.getType();
-	  reportEvent(event);
-	}
-     }
-  
   string summary_report = m_hazard_set.getSpec("final_report");
    
   Notify("HAZARDSET_REPORT", summary_report);
@@ -417,6 +365,7 @@ void HazardMgr::handleMailReportRequest()
   Notify("NODE_MESSAGE_LOCAL", msg); 
 
 }
+
 
 //---------------------------------------------------------
 // Procedure: handleMailMissionParams
@@ -438,6 +387,7 @@ void HazardMgr::handleMailMissionParams(string str)
     // This needs to be handled by the developer. Just a placeholder.
   }
 }
+
 
 //------------------------------------------------------------
 // Procedure: buildReport()
