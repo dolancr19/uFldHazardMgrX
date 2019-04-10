@@ -27,6 +27,7 @@
 #include "MOOS/libMOOS/Thirdparty/AppCasting/AppCastingMOOSApp.h"
 #include "XYHazardSet.h"
 #include "XYPolygon.h"
+#include <stdlib.h>
 
 using namespace std;
 
@@ -97,6 +98,15 @@ class HazardMgr : public AppCastingMOOSApp
    string m_test;
    int m_dup;
    int m_new;
+
+   double m_missed_hazard;
+   double m_false_alarm;
+   double m_max_time;
+   double m_max_time_over;
+   double m_max_time_rate;
+   string m_search;
+
+   bool m_mstr;
 
   //vector to hold incoming reports
   vector<string> m_vector_detection;

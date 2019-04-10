@@ -60,6 +60,13 @@ HazardMgr::HazardMgr()
   m_previous_time=0;
   m_dup=0;
   m_new=0;
+
+  m_missed_hazard=0;
+  m_false_alarm=0;
+  m_max_time=0;
+  m_max_time_over=0;
+  m_max_time_rate=0;
+  m_mstr=true;
   
 }
 
@@ -104,11 +111,15 @@ bool HazardMgr::OnNewMail(MOOSMSG_LIST &NewMail)
       handleMailVehicleReportRequest();
 
     else if (key == "VEHICLE_REPORT")
-      handleMailVehicleReport(sval);
+      {m_mstr = msg.IsString();
+	handleMailVehicleReport(sval);}
 
     else if(key == "NODE_REPORT")
-      {	m_comms = true;
-	m_previous_time=MOOSTime();
+      {
+	
+	    m_comms = true;
+	    m_previous_time=MOOSTime();
+	  
       }
     //handles classification 
     else if(key == "UHZ_HAZARD_REPORT")
@@ -347,27 +358,31 @@ void HazardMgr::handleMailReportRequest()
   m_summary_reports++;
 
   //m_hazard_set.findMinXPath(20);
-  
+  m_hazard_set.clear();
+  m_hazard_set.setSource(m_host_community);
+  m_hazard_set.setName(m_report_name);
+  m_hazard_set.setRegion(m_search_region);
   //unsigned int count    = m_hazard_set.findMinXPath(20);
 
-  XYHazard new_hazard ;
-
-  unsigned int i,
-  vsize = m_classified.size(); //size of classified detections
+     
+  unsigned int vsize = m_classified.size(); //size of classified detections
+  //m_test=intToString(vsize);
 
   //cycle through each element of the classified array
-  for (i=0; i<vsize; i++)
+  for (unsigned int i=0; i<vsize; i++)
     {
-      new_hazard = m_classified.getHazard(i);
-     string haztype=  new_hazard.getType();
-     vector<string> hazvector = parseString(haztype, '#');
-     int haz_count=0;
-     int ben_count=0;
-     //count different classification of the same object
-     for (unsigned int j=0; j<hazvector.size(); j++)
-	{  if (hazvector[i] == "hazard")
+      XYHazard new_hazard = m_classified.getHazard(i);
+      string haztype=  new_hazard.getType();
+         
+      vector<string> hazvector = parseString(haztype, '#');
+      int haz_count=0;
+      int ben_count=0;
+      //count different classification of the same object
+      for (unsigned int j=0; j<hazvector.size(); j++)
+	{
+	  if (hazvector[j] == "hazard")
 	    haz_count += 1;
-	  else if (hazvector[i] == "benign")
+	  else if (hazvector[j] == "benign")
 	    ben_count +=1;
 	}
       //set final classification type
@@ -377,45 +392,48 @@ void HazardMgr::handleMailReportRequest()
 	new_hazard.setType("benign");
 
        // find the hazard label and insert it into hazard set  
-       string hazlabel = new_hazard.getLabel();
-      if (new_hazard.getType() == "hazard") {     
-       int ix = m_hazard_set.findHazard(hazlabel);
-       if(ix == -1)
-       {
-          m_new +=1;
-          m_hazard_set.addHazard(new_hazard);
-          string event = "New hazard added, label=" + new_hazard.getLabel();
-          event += ", x=" + doubleToString(new_hazard.getX(),1);
-          event += ", y=" + doubleToString(new_hazard.getY(),1);
-          event += ", type=" + new_hazard.getType();
-	  reportEvent(event);
-         }
-      else
+      string hazlabel = new_hazard.getLabel();
+      if (new_hazard.getType() == "hazard")
 	{
-	  m_hazard_set.setHazard(ix, new_hazard);
-          string event = "Old hazard updated, label=" + new_hazard.getLabel();
-          event += ", x=" + doubleToString(new_hazard.getX(),1);
-          event += ", y=" + doubleToString(new_hazard.getY(),1);
-          event += ", type=" + new_hazard.getType();
-	  reportEvent(event);
-	}
-     }
+	  int ix = m_hazard_set.findHazard(hazlabel);
+          if(ix == -1)
+            {
+              m_hazard_set.addHazard(new_hazard);
+              //string event = "New hazard added, label=" + new_hazard.getLabel();
+              //event += ", x=" + doubleToString(new_hazard.getX(),1);
+              //event += ", y=" + doubleToString(new_hazard.getY(),1);
+              //event += ", type=" + new_hazard.getType();
+	      //reportEvent(event);
+            }
+          else
+	    {
+	      m_hazard_set.setHazard(ix, new_hazard);
+              //string event = "Old hazard updated, label=" + new_hazard.getLabel();
+              //event += ", x=" + doubleToString(new_hazard.getX(),1);
+              //event += ", y=" + doubleToString(new_hazard.getY(),1);
+              //event += ", type=" + new_hazard.getType();
+	      //reportEvent(event);
+	    }
+          }
+    }
   
   string summary_report = m_hazard_set.getSpec("final_report");
    
   Notify("HAZARDSET_REPORT", summary_report);
   
-  NodeMessage node_message;
+  //NodeMessage node_message;
 
-  node_message.setSourceNode(m_host_community);
-  node_message.setDestNode("all");
-  node_message.setVarName("HAZARDSET_REPORT");
-  node_message.setStringVal(summary_report);
+  //node_message.setSourceNode(m_host_community);
+  //node_message.setDestNode("all");
+  //node_message.setVarName("HAZARDSET_REPORT");
+  //node_message.setStringVal(summary_report);
   //what happened to character limit here?
-  string msg = node_message.getSpec();
+  //string msg = node_message.getSpec();
 
-  Notify("NODE_MESSAGE_LOCAL", msg); 
+  //Notify("NODE_MESSAGE_LOCAL", msg); 
 
+
+ 
 }
 
 //---------------------------------------------------------
@@ -430,13 +448,25 @@ void HazardMgr::handleMailReportRequest()
 
 void HazardMgr::handleMailMissionParams(string str)
 {
-  vector<string> svector = parseStringZ(str, ',', "{");
-  unsigned int i, vsize = svector.size();
-  for(i=0; i<vsize; i++) {
-    string param = biteStringX(svector[i], '=');
-    string value = svector[i];
+ string missed =tokStringParse(str,"penalty_missed_hazard",',','=');
+  m_missed_hazard = strtod(missed.c_str(),NULL);
+  string false_alarm =tokStringParse(str,"penalty_false_alarm",',','=');
+  m_false_alarm=strtod(false_alarm.c_str(),NULL);
+  string max_time=tokStringParse(str,"max_time",',','=');
+  m_max_time=strtod(max_time.c_str(),NULL);
+  string time_over=tokStringParse(str,"penalty_max_time_over",',','=');
+  m_max_time_over=strtod(time_over.c_str(),NULL);
+  string time_rate=tokStringParse(str,"penalty_max_time_rate",',','=');
+  m_max_time_rate=strtod(time_rate.c_str(),NULL);
+  m_search=tokStringParse(str,"search_region",',','=');
+    
+  //vector<string> svector = parseStringZ(str, ',', "{");
+  //unsigned int i, vsize = svector.size();
+  //for(i=0; i<vsize; i++) {
+  //  string param = biteStringX(svector[i], '=');
+  //  string value = svector[i];
     // This needs to be handled by the developer. Just a placeholder.
-  }
+  //}
 }
 
 //------------------------------------------------------------
@@ -466,8 +496,9 @@ bool HazardMgr::buildReport()
   //m_msgs << "               Status of comms: " << m_comms << endl;
   //m_msgs << "        time between messages=: " << m_current_time-m_previous_time << endl;
   m_msgs << "                    type test=: " << m_test << endl;
-  m_msgs << "                           new=: " << m_new << endl;
-  m_msgs << "                           dup=: " << m_dup << endl;
+  //m_msgs << "                           new=: " << m_new << endl;
+  //m_msgs << "                           dup=: " << m_dup << endl;
+  m_msgs << "                     is string? " << m_mstr << endl;
 
   return(true);
 }
@@ -479,10 +510,12 @@ bool HazardMgr::handleMailVehicleReport(string input)
 {
 
   //parse incoming long report
+  
   vector<string> str_vector = parseString(input, "#");
   
   for (unsigned int i=0; i<str_vector.size(); i++)
     {  string str = str_vector[i] ;
+      if (str!="empty")
        handleMailHazardReport(str);
     }  
 
@@ -498,11 +531,18 @@ void HazardMgr::handleMailVehicleReportRequest()
     {
       string str;
       unsigned int jj = m_vector_detection.size();
+      m_test=intToString(jj);
+      if(jj==0)
+	str="empty";
+      else
+	{
+	  
       for (unsigned int i = 0; i < jj && i<2; i++)
         {
 	  str = str + m_vector_detection[0] + "#";
           m_vector_detection.erase(m_vector_detection.begin());
         }
+	}
       
       NodeMessage node_message;
 
@@ -552,9 +592,9 @@ bool HazardMgr::handleMailHazardReport(string str)
       m_dup +=1;
       XYHazard working = m_classified.getHazard(ix);
       string new_type = working.getType();
-      //m_test=new_type;
+      
       new_type = new_type + "#" + haztype;
-      m_test = new_type;
+      
       working.setType(new_type.c_str());
       m_classified.setHazard(ix, working);
     }
