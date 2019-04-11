@@ -62,6 +62,8 @@ class HazardMgr : public AppCastingMOOSApp
    void postSensorConfigRequest();
    void postSensorInfoRequest();
    void postHazardSetReport();
+   double GetDistance(string);
+   void EvaluatePD();
    
  private: // Configuration variables
    double      m_swath_width_desired;
@@ -92,7 +94,7 @@ class HazardMgr : public AppCastingMOOSApp
    double      m_transit_path_width;
 
    bool m_comms;
-   double m_previous_time;
+   double m_previous;
    double m_current_time;
    string m_comm;
    string m_test;
@@ -107,7 +109,22 @@ class HazardMgr : public AppCastingMOOSApp
    string m_search;
 
    bool m_mstr;
+   double m_comm_time;
+   double m_comm_request;
 
+   double m_x;
+   double m_y;
+   double m_nav_x;
+   double m_nav_y;
+
+   double m_distance;
+   double m_counter;
+   double m_detection;
+   double m_check;
+   double m_range;
+   double m_counter2;
+   double m_node_time;
+   
   //vector to hold incoming reports
   vector<string> m_vector_detection;
 };

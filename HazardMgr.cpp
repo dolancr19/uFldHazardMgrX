@@ -57,9 +57,13 @@ HazardMgr::HazardMgr()
   m_summary_reports = 0;
   m_comms = false;
   m_current_time=0;
-  m_previous_time=0;
+  m_previous=0;
   m_dup=0;
   m_new=0;
+  m_x=0;
+  m_y=0;
+  m_nav_x=0;
+  m_nav_y=0;
 
   m_missed_hazard=0;
   m_false_alarm=0;
@@ -67,6 +71,16 @@ HazardMgr::HazardMgr()
   m_max_time_over=0;
   m_max_time_rate=0;
   m_mstr=true;
+  m_comm_time=0;
+  m_comm_request=0;
+  m_distance=0;
+  m_counter=0;
+  m_detection=0;
+  m_check=0;
+  m_range=0;
+  m_counter2=0;
+  m_node_time=0;
+  
   
 }
 
@@ -81,7 +95,8 @@ bool HazardMgr::OnNewMail(MOOSMSG_LIST &NewMail)
   for(p=NewMail.begin(); p!=NewMail.end(); p++) {
     CMOOSMsg &msg = *p;
     string key   = msg.GetKey();
-    string sval  = msg.GetString(); 
+    string sval  = msg.GetString();
+    double dval  = msg.GetDouble();
 
 #if 0 // Keep these around just for template
     string comm  = msg.GetCommunity();
@@ -98,8 +113,12 @@ bool HazardMgr::OnNewMail(MOOSMSG_LIST &NewMail)
     else if(key == "UHZ_OPTIONS_SUMMARY") 
       handleMailSensorOptionsSummary(sval);
 
-    else if(key == "UHZ_DETECTION_REPORT") 
-      handleMailDetectionReport(sval);
+    else if(key == "UHZ_DETECTION_REPORT")
+      {
+	m_detection=MOOSTime();
+	m_counter+=1;
+	handleMailDetectionReport(sval);
+      }
 
     else if(key == "HAZARDSET_REQUEST") 
       handleMailReportRequest();
@@ -111,21 +130,29 @@ bool HazardMgr::OnNewMail(MOOSMSG_LIST &NewMail)
       handleMailVehicleReportRequest();
 
     else if (key == "VEHICLE_REPORT")
-      {m_mstr = msg.IsString();
-	handleMailVehicleReport(sval);}
+      handleMailVehicleReport(sval);
 
     else if(key == "NODE_REPORT")
       {
-	
-	    m_comms = true;
-	    m_previous_time=MOOSTime();
-	  
+	m_comms=true;
+	m_node_time=MOOSTime();
+         
       }
+    else if(key == "NAV_X")
+      {
+      
+      
+      m_nav_x=dval;}
+
+    else if(key == "NAV_Y")
+      m_nav_y=dval;
+  
     //handles classification 
     else if(key == "UHZ_HAZARD_REPORT")
-      { handleMailHazardReport(sval);
-	
-	  m_vector_detection.push_back(sval.c_str());}
+      {
+	handleMailHazardReport(sval);
+	m_vector_detection.push_back(sval.c_str());
+      }
     else 
       reportRunWarning("Unhandled Mail: " + key);
   }
@@ -156,9 +183,13 @@ bool HazardMgr::Iterate()
   if(m_sensor_config_set)
     postSensorInfoRequest();
 
+  EvaluatePD();
+
   m_current_time=MOOSTime();
-  if(m_current_time-m_previous_time>2)
+  if(m_current_time-m_node_time>1)
     m_comms=false;
+
+  
   
   AppCastingMOOSApp::PostReport();
   return(true);
@@ -232,7 +263,11 @@ void HazardMgr::registerVariables()
   Register("VEHICLE_REPORT_REQUEST",0);
   Register("NODE_REPORT",0);
   Register("UHZ_HAZARD_REPORT", 0);
-  m_previous_time=MOOSTime();
+  Register("NAV_X",0);
+  Register("NAV_Y",0);
+  m_previous=MOOSTime();
+  m_comm_time=MOOSTime();
+  
 }
 
 //---------------------------------------------------------
@@ -242,7 +277,7 @@ void HazardMgr::postSensorConfigRequest()
 {
   string request = "vname=" + m_host_community;
   
-  request += ",width=" + doubleToStringX(m_swath_width_desired,2);
+  //request += ",width=" + doubleToStringX(m_swath_width_desired,2);
   request += ",pd="    + doubleToStringX(m_pd_desired,2);
 
   m_sensor_config_requested = true;
@@ -319,6 +354,9 @@ bool HazardMgr::handleMailSensorConfigAck(string str)
 
 bool HazardMgr::handleMailDetectionReport(string str)
 {
+  
+	  
+      
   m_detection_reports++;
   
   XYHazard new_hazard = string2Hazard(str);
@@ -386,35 +424,39 @@ void HazardMgr::handleMailReportRequest()
 	    ben_count +=1;
 	}
       //set final classification type
+      
       if (haz_count >= ben_count)
-	new_hazard.setType("hazard");
-      else if (haz_count < ben_count)
-	new_hazard.setType("benign");
+	{
+	  new_hazard.setType("hazard");
+	  m_hazard_set.addHazard(new_hazard);}
+        
+	  else if (haz_count < ben_count)
+	  new_hazard.setType("benign");
 
        // find the hazard label and insert it into hazard set  
       string hazlabel = new_hazard.getLabel();
-      if (new_hazard.getType() == "hazard")
-	{
-	  int ix = m_hazard_set.findHazard(hazlabel);
-          if(ix == -1)
-            {
-              m_hazard_set.addHazard(new_hazard);
+       if (new_hazard.getType() == "hazard")
+      	{
+        int ix = m_hazard_set.findHazard(hazlabel);
+        if(ix == -1)
+          {
+            m_hazard_set.addHazard(new_hazard);
               //string event = "New hazard added, label=" + new_hazard.getLabel();
               //event += ", x=" + doubleToString(new_hazard.getX(),1);
               //event += ", y=" + doubleToString(new_hazard.getY(),1);
               //event += ", type=" + new_hazard.getType();
 	      //reportEvent(event);
-            }
-          else
-	    {
-	      m_hazard_set.setHazard(ix, new_hazard);
+          }
+        else
+          {
+            m_hazard_set.setHazard(ix, new_hazard);
               //string event = "Old hazard updated, label=" + new_hazard.getLabel();
               //event += ", x=" + doubleToString(new_hazard.getX(),1);
               //event += ", y=" + doubleToString(new_hazard.getY(),1);
               //event += ", type=" + new_hazard.getType();
 	      //reportEvent(event);
-	    }
-          }
+       }
+      }
     }
   
   string summary_report = m_hazard_set.getSpec("final_report");
@@ -493,12 +535,12 @@ bool HazardMgr::buildReport()
   m_msgs << "   Hazardset Reports Requested: " << m_summary_reports << endl;
   m_msgs << "      Hazardset Reports Posted: " << m_summary_reports << endl;
   m_msgs << "                   Report Name: " << m_report_name << endl;
-  //m_msgs << "               Status of comms: " << m_comms << endl;
-  //m_msgs << "        time between messages=: " << m_current_time-m_previous_time << endl;
   m_msgs << "                    type test=: " << m_test << endl;
-  //m_msgs << "                           new=: " << m_new << endl;
-  //m_msgs << "                           dup=: " << m_dup << endl;
-  m_msgs << "                     is string? " << m_mstr << endl;
+  m_msgs << "                     distance=: " << m_range << endl;
+  m_msgs << "                   pd granted=: " << m_pd_granted << endl;
+  m_msgs << "                      counter=: " << m_counter2 << endl;
+  m_msgs << "                        nav x=: " << m_nav_x << endl;
+  
 
   return(true);
 }
@@ -514,9 +556,11 @@ bool HazardMgr::handleMailVehicleReport(string input)
   vector<string> str_vector = parseString(input, "#");
   
   for (unsigned int i=0; i<str_vector.size(); i++)
-    {  string str = str_vector[i] ;
+    {
+      string str = str_vector[i];
+      
       if (str!="empty")
-       handleMailHazardReport(str);
+        handleMailHazardReport(str);
     }  
 
    return(true);
@@ -527,11 +571,12 @@ bool HazardMgr::handleMailVehicleReport(string input)
 
 void HazardMgr::handleMailVehicleReportRequest()
 {
+  
   if(m_comms)
     {
       string str;
       unsigned int jj = m_vector_detection.size();
-      m_test=intToString(jj);
+      
       if(jj==0)
 	str="empty";
       else
@@ -554,6 +599,7 @@ void HazardMgr::handleMailVehicleReportRequest()
       string msg = node_message.getSpec();
 
       Notify("NODE_MESSAGE_LOCAL", msg);
+      m_comm_time=MOOSTime();
     }
 }
 
@@ -569,7 +615,7 @@ bool HazardMgr::handleMailHazardReport(string str)
   XYHazard new_hazard = string2Hazard(str);
 
   string hazlabel = new_hazard.getLabel();
-
+  
   if(hazlabel == "") {
     reportRunWarning("Detection report received for hazard w/out label"\
 		     );
@@ -608,11 +654,38 @@ bool HazardMgr::handleMailHazardReport(string str)
   return(true);
 }
 
+double HazardMgr::GetDistance(string sval)
+{
+  
+  
+  string x = tokStringParse(sval,"x",',','=');
+  string y = tokStringParse(sval,"y",',','=');
+  double x_val = strtod(x.c_str(),NULL);
+  double y_val = strtod(y.c_str(),NULL);
+  double range = hypot(m_nav_x-x_val,m_nav_y-y_val);
+  return(range);
+}
 
-
-
-
-
+void HazardMgr::EvaluatePD()
+{
+  m_check = MOOSTime()-m_previous;
+  if(m_check>120)
+    {
+      m_previous=MOOSTime();
+      if(m_counter/(m_check/60)>2)
+	{
+	  m_pd_desired=m_pd_granted-.1;
+	  postSensorConfigRequest();
+	}
+      m_counter=0;
+    }
+  if(MOOSTime()-m_detection>240)
+    {
+      m_pd_desired=.7;
+      postSensorConfigRequest();
+      m_counter=0;
+    }
+}
 
 
 
