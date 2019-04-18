@@ -40,7 +40,7 @@ HazardMgr::HazardMgr()
 {
   // Config variables
   m_swath_width_desired = 25;
-  m_pd_desired          = 0.9;
+  m_pd_desired          = 0.7;
 
   // State Variables 
   m_sensor_config_requested = false;
